@@ -564,6 +564,11 @@
               <FileType>1</FileType>
               <FilePath>..\..\User\transport.c</FilePath>
             </File>
+            <File>
+              <FileName>ali_mqtt.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\..\User\ali_mqtt.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

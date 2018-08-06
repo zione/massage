@@ -10,9 +10,6 @@
 #define SIM_BUFF_SIZEMAX 256
 static char SIM_Buffer[SIM_BUFF_SIZEMAX];	//串口接收缓存区 
 
-const char *port = "1883";																	//端口固定为1883
-const char *ipaddr = "a11fsZZPcNJ.iot-as-mqtt.cn-shanghai.aliyuncs.com";
-
 /******************************************************************************
 * 函数名		: Sim_ini
 * 函数描述  	: SIM800C初始化
@@ -122,31 +119,6 @@ uint8_t sim800c_send_data(char *data,u8 lenth)
 ******************************************************************************/
 uint8_t Start_Gprs_TCP(void)
 {
-/*	sim800c_send_cmd("ATE0","OK",200);										//不回显
-	sim800c_send_cmd("AT+IFC=0,0","OK",200);
-	sim800c_send_cmd("AT+CSCLK=0","OK",200);
-	sim800c_send_cmd("AT+CBC","OK",200);
-	sim800c_send_cmd("AT+CPIN?","OK",200);
-	sim800c_send_cmd("AT+CSQ","OK",200);
-	sim800c_send_cmd("AT+CFGRI=0","OK",200);
-	sim800c_send_cmd("AT+CREG=1","OK",200);
-	sim800c_send_cmd("AT+CGREG=1","OK",200);
-	if(Creg_CK()){
-		printf("\r\n=======网络注册失败=======\r\n");
-		return 0x01;
-	}
-	printf("\r\n=======网络注册成功=======\r\n");
-	sim800c_send_cmd("AT+CGATT=1","OK",100);	
-	sim800c_send_cmd("AT+CGREG?","OK",100);	
-	sim800c_send_cmd("AT+CGATT?","OK",100);	
-	sim800c_send_cmd("AT+CIPRXGET=1","OK",100);		
-	sim800c_send_cmd("AT+CIPSHUT","OK",100);		
-	sim800c_send_cmd("AT+CSTT=\"CMNET\"","OK",100);	
-	sim800c_send_cmd("AT+CIICR","OK",100);			
-	sim800c_send_cmd("AT+CIFSR",0,100);			
-	sim800c_send_cmd("AT+CIPQSEND=0","OK",100);*/
-
-	
 	sim800c_send_cmd("AT+CIPCLOSE=1","OK",2);	//关闭连接
   delay_ms(100);
 	sim800c_send_cmd("AT+CIPSHUT","SHUT OK",2);		//关闭移动场景
@@ -157,8 +129,7 @@ uint8_t Start_Gprs_TCP(void)
   sim800c_send_cmd("AT+CIPMUX=0","OK",2);//设置为单路连接
 	sim800c_send_cmd("AT+CIPMODE=1","OK",2);//打开透传功能
 	sim800c_send_cmd("AT+CIPCCFG=4,5,200,1","OK",2);//配置透传模式：单包重发次数:2,间隔1S发送一次,每次发送200的字节
-	Creg_CK();
-	return connect_server();
+	return Creg_CK();
 }
 
 //判断移动网络注册状态
@@ -195,30 +166,6 @@ uint8_t Creg_CK(void)
 		return 0x00;
 	}else{
 		return 0x01;
-	}
-}
-
-uint8_t connect_server(void){
-	char p2[100];
-	uint8_t i;
-	
-	sprintf((char*)p2,"AT+CIPSTART=\"%s\",\"%s\",\"%s\"","TCP",ipaddr,port);
-	if(0==sim800c_send_cmd(p2,"OK",500))														//发起连接
-	{
-		i=0;
-		while(i < 5){
-			i++;
-			delay_ms(500);
-			sim800c_send_cmd("AT+CIPSTATUS","OK",500);										//查询连接状态
-			if(strstr((const char*)SIM_Buffer,"CONNECT OK"))
-			{
-				printf("SIM800C TCP Connect server OK\r\n");
-				return 0;
-			}
-		}
-		return 1;
-	}else{
-			return 1;
 	}
 }
 
