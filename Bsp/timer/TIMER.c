@@ -1,6 +1,6 @@
 
 #include "TIMER.h"
-
+#include "bsp_led.h"
 
 /* 自定义同义关键字    --------------------------------------------------------*/
 
@@ -17,7 +17,8 @@ vu16 CCR4_Val = 1000;
 
 uint8_t FLAG_TEST;
 
-
+int ping_time = 0;    //心跳包的时间计数器
+int switch_time = 0;    //开关的时间计数器
 /* 自定义函数声明      --------------------------------------------------------*/
 
 /******************************************************************************
@@ -67,8 +68,6 @@ void RCC_Configuration(void)
 			FLAG_TEST=1;
 		}
 	
-  	/* 打开 TIM2 时钟 */
-		RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
 		RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO|RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOB,ENABLE);
 		GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable , ENABLE);//禁用JTAG,释放PB3/4
 
@@ -76,7 +75,7 @@ void RCC_Configuration(void)
 
 /*******************************************************************************
 * 函数名  		: TIM2_Configuration
-* 函数描述    	: 设置TIM各通道
+* 函数描述    	: 一秒一次中断
 * 输入参数      : 无
 * 输出结果      : 无
 * 返回值        : 无
@@ -86,59 +85,21 @@ void TIM2_Configuration(void)
 {
 	/* 定义 TIM_TimeBase 初始化结构体 TIM_TimeBaseStructure */
 	TIM_TimeBaseInitTypeDef  TIM_TimeBaseStructure;
-	/* 定义 TIM_OCInit 初始化结构体 TIM_OCInitStructure */
-	TIM_OCInitTypeDef  TIM_OCInitStructure;
 	
-	/* 	100us初值
-	*  	计数重载值为65535
-	*  	预分频值为(7199 + 1 = 7200)
-	*  	时钟分割0
-	*  	向上计数模式
-	*/
-	TIM_TimeBaseStructure.TIM_Period = 65535;
-	TIM_TimeBaseStructure.TIM_Prescaler = 0;
-	TIM_TimeBaseStructure.TIM_ClockDivision = 0;
-	TIM_TimeBaseStructure.TIM_CounterMode = TIM_CounterMode_Up;	
-	TIM_TimeBaseInit(TIM2 , &TIM_TimeBaseStructure);
+	RCC_APB1PeriphClockCmd(RCC_APB1Periph_TIM2, ENABLE);
+	TIM_DeInit(TIM2);
 	
-	/* 设置预分频值，且立即装入 */
-	TIM_PrescalerConfig(TIM2 , 7200-1 , TIM_PSCReloadMode_Immediate);
-
-	/* 	
-	*	设置 OC1,OC2,OC3,OC4 通道
-	*  	工作模式为计数器模式
-	*  	使能比较匹配输出极性
-	*  	时钟分割0
-	*  	向上计数模式
-	*/
-
-	TIM_OCInitStructure.TIM_OCMode = TIM_OCMode_Timing;
-	TIM_OCInitStructure.TIM_OutputState = TIM_OutputState_Enable;	
-	TIM_OCInitStructure.TIM_OCPolarity = TIM_OCPolarity_High;
-
-	TIM_OCInitStructure.TIM_Pulse = CCR1_Val;	
-	TIM_OC1Init(TIM2, &TIM_OCInitStructure);
-		
-	TIM_OCInitStructure.TIM_Pulse = CCR2_Val;	
-	TIM_OC2Init(TIM2, &TIM_OCInitStructure);
+	TIM_TimeBaseStructure.TIM_Period=2000-1; 
+	TIM_TimeBaseStructure.TIM_Prescaler=(36000-1); 
+	TIM_TimeBaseStructure.TIM_ClockDivision=TIM_CKD_DIV1; 
+	TIM_TimeBaseStructure.TIM_CounterMode=TIM_CounterMode_Up;
+	TIM_TimeBaseInit(TIM2,&TIM_TimeBaseStructure);
+	TIM_ClearFlag(TIM2,TIM_FLAG_Update);  
+	TIM_ITConfig(TIM2,TIM_IT_Update,ENABLE);
 	
-	TIM_OCInitStructure.TIM_Pulse = CCR3_Val;	
-	TIM_OC3Init(TIM2, &TIM_OCInitStructure);
-		
-	TIM_OCInitStructure.TIM_Pulse = CCR4_Val;	
-	TIM_OC4Init(TIM2, &TIM_OCInitStructure);
-
-	/* 禁止预装载寄存器 */
-	TIM_OC1PreloadConfig(TIM2 , TIM_OCPreload_Disable);
-	TIM_OC2PreloadConfig(TIM2 , TIM_OCPreload_Disable);
-	TIM_OC3PreloadConfig(TIM2 , TIM_OCPreload_Disable);
-	TIM_OC4PreloadConfig(TIM2 , TIM_OCPreload_Disable);
-		
-	/* 使能 TIM 中断 */
-	TIM_ITConfig(TIM2 , TIM_IT_CC1 | TIM_IT_CC2 | TIM_IT_CC3 | TIM_IT_CC4 , ENABLE);
+	NVIC_Configuration();
 	
-	/* 启动 TIM 计数 */
-	TIM_Cmd(TIM2 , ENABLE);	
+	TIM_Cmd(TIM2,ENABLE);        
 }
 
 /*******************************************************************************
@@ -164,4 +125,42 @@ void NVIC_Configuration(void)
 	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
 	
+}
+
+void TIM2_IRQHandler(void){
+	if(TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET){
+		TIM_ClearITPendingBit(TIM2 , TIM_FLAG_Update);
+		if(ping_time < MAX_PING_COUNTER){
+			ping_time++;
+		}else{
+			
+		}
+		
+		if(switch_time > 0){
+			switch_time--;
+		}
+		
+		if(switch_time == 0){
+			LED_OFF;
+		}
+	}
+}
+
+//是否已经计时了10s
+int isPingCountEnd(){
+	return ping_time == MAX_PING_COUNTER?0:1;
+}
+
+void resetPingCount(){
+	ping_time = 0;
+}
+
+//设置开关闭合多少秒
+void setSwitchTime(int value){
+	switch_time = value;
+	if(value > 0){
+		LED_ON;
+	}else{
+		LED_OFF;
+	}
 }

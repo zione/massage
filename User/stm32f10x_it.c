@@ -140,10 +140,10 @@ void PendSV_Handler(void)
 
 
 //定时器2
-void TIM2_IRQHandler(void)
-{
+//void TIM2_IRQHandler(void)
+//{
 	
-}
+//}
 
 /*
  * 函数名：USB_LP_CAN1_RX0_IRQHandler

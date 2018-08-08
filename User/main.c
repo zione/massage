@@ -26,6 +26,7 @@ int main(void)
   USART2_Config();
 	USART2_DMATxd_Init();
 	Set_PrintfPort(1);		//设置DebugPf从串口1输出
+	TIM2_Configuration();
 	
 	Sim_ini();   //初始化sim868
 	
@@ -34,6 +35,7 @@ int main(void)
 		switch(KEY_Scan(0))
 		{
 			case KEY0_PRES:
+				LED_TOGGLE;
 				break;
 			default:
 				break;

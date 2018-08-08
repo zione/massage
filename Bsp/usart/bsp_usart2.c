@@ -204,28 +204,41 @@ u32 LookUSART2_GetBuffCount(void)
 u32 USART2_GetData(char* Data,u32 DataLen)
 {
 	u16 count = 0;
-	
+	USART_ITConfig(USART2, USART_IT_RXNE, DISABLE);				//关闭接收中断，防止读取过程中的数据变化
 	if(frameValide && LookUSART2_GetBuffCount()){
-		USART_ITConfig(USART2, USART_IT_RXNE, DISABLE);				//关闭接收中断，防止读取过程中的数据变化
 		for(;frameIndex<frameCount && count< DataLen;frameIndex++)
 		{
 			Data[count] = USART2RxBuffer[frameIndex];
 			count++;
 		}
-		USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);				//开启接收中断
 	}	
-
+	USART_ITConfig(USART2, USART_IT_RXNE, ENABLE);				//开启接收中断
 	return count;
 }
 
 void print_usart2_buf(void){
 	int i = 0;
+	printf("\r\n");
 	if(frameValide && frameCount){
 		for(;i<frameCount;i++){
 			printf("%02X ",USART2RxBuffer[i]);
 		}
 	}else{
 		printf("usart2 buf null");
+	}
+	printf("usart2 buf :%d-%d-%d\r\n",frameValide,frameCount,frameIndex);
+}
+
+//查询是否有接收到某个字符串，0有，1无
+uint8_t check_str_in_buf(char* str){
+	if(frameValide && LookUSART2_GetBuffCount()){
+		if(strstr((char *)USART2RxBuffer,str)){
+			return 0;
+		}else{
+			return 1;
+		}
+	}else{
+		return 1;
 	}
 }
 
@@ -334,6 +347,8 @@ void USART2_IRQHandler(void)
 			clear=USART2->SR;
 			clear=USART2->DR;			
 			frameValide = 1;
+			frameIndex = 0;
+			USART2RxBuffer[frameCount]= '\0';  //在末尾加一个结束符
 	}
 
 	else if(USART_GetFlagStatus(USART2, USART_IT_ORE) == SET)		//检测是否有接收溢出

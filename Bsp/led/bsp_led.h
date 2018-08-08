@@ -15,7 +15,7 @@
 #define LED_OFF				digitalHi(GPIOB,GPIO_Pin_9)
 #define LED_ON				digitalLo(GPIOB,GPIO_Pin_9)
 
-
 void LED_GPIO_Config(void);
+int getLedStatus(void);
 
 #endif /* __LED_H */

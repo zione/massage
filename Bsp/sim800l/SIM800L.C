@@ -33,7 +33,6 @@ void Sim_ini(void)
 			printf("尝试连接模块...");
 			delay_ms(400);  
 		}
-		printf("连接模块成功...");
 		printf("开始GPRS配置...");
 		if(Start_Gprs_TCP() == 0)
 		{
@@ -72,7 +71,7 @@ u8 sim800c_send_cmd(char *cmd,char *ack,u16 waittime)
 			length = USART2_GetData(SIM_Buffer,SIM_BUFF_SIZEMAX);
 			if(length)//接收到期待的应答结果
 			{
-				SIM_Buffer[length]=0;//添加结束符
+				SIM_Buffer[length]='\0';//添加结束符
 				if(strstr((const char*)SIM_Buffer,(const char*)ack)){
 					break;
 				}
@@ -97,7 +96,7 @@ uint8_t sim800c_send_data(char *data,u8 lenth)
 	{
 		USART2_SendString(data,lenth);
 		delay_ms(10);
-		if(sim800c_send_cmd((char*)0X1A,"SEND OK",5000)==0)
+		if(sim800c_send_cmd((char*)0X1A,"SEND OK",500)==0)
 			return 0;
 		else
 			return 1;
@@ -107,8 +106,6 @@ uint8_t sim800c_send_data(char *data,u8 lenth)
 		return 1;
 	}
 }
-
-
 
 /******************************************************************************
 * 函数名		: Start_Gprs_TCP
@@ -122,6 +119,9 @@ uint8_t Start_Gprs_TCP(void)
 	sim800c_send_cmd("AT+CIPCLOSE=1","OK",2);	//关闭连接
   delay_ms(100);
 	sim800c_send_cmd("AT+CIPSHUT","SHUT OK",2);		//关闭移动场景
+	sim800c_send_cmd("AT+CSQ","OK",2);	//信号强度
+	sim800c_send_cmd("AT+CREG=1","OK",2);
+	sim800c_send_cmd("AT+CGREG=1","OK",2);
 	sim800c_send_cmd("AT+CGCLASS=\"B\"","OK",2);//设置GPRS移动台类别为B,支持包交换和数据交换 
 	sim800c_send_cmd("AT+CGDCONT=1,\"IP\",\"CMNET\"","OK",2);//设置PDP上下文,互联网接协议,接入点等信息
 	sim800c_send_cmd("AT+CGATT=1","OK",2);//附着GPRS业务
@@ -142,25 +142,25 @@ uint8_t Creg_CK(void)
 	do{	
 		USART2_printf("%s\r\n","AT+CREG?");//发送命令
 		i++;
-		delay_ms(500);
+		delay_ms(1000);
 		length = USART2_GetData(SIM_Buffer,SIM_BUFF_SIZEMAX);
 		if(length)//接收到期待的应答结果
 		{
 			SIM_Buffer[length]=0;//添加结束符
 		}
-	}while((strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,1")==NULL)&& i<30);
+	}while((strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,1")==NULL)&& i<60);
 	
 	j=0;
 	do{
 		USART2_printf("%s\r\n","AT+CGREG?");//发送命令
 		j++;
-		delay_ms(500);
+		delay_ms(1000);
 		length = USART2_GetData(SIM_Buffer,SIM_BUFF_SIZEMAX);
 		if(length)//接收到期待的应答结果
 		{
 			SIM_Buffer[length]=0;//添加结束符
 		}
-	}while((strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,1")==NULL)&& i<30);
+	}while((strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,1")==NULL)&& j<60);
 	
 	if(i<30 && j<30){
 		return 0x00;

@@ -23,7 +23,11 @@ void LED_GPIO_Config(void)
 		GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz; 
 
 		/*调用库函数，初始化GPIOB0*/
-		GPIO_Init(GPIOB, &GPIO_InitStructure);				
+		GPIO_Init(GPIOB, &GPIO_InitStructure);		
+}
+
+int getLedStatus(void){
+	return GPIO_ReadOutputDataBit(GPIOB,GPIO_Pin_9);
 }
 
 /*********************************************END OF FILE**********************/
