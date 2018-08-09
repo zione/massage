@@ -20,5 +20,5 @@ uint8_t send_subscribe_packet(void);
 uint8_t send_publish_packet(void);
 uint8_t check_to_ping(void);
 void recv_mqtt(void);
-void parse_payload(void);
+void parse_payload(unsigned char* payload,int length);
 

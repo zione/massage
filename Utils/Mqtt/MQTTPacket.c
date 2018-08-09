@@ -297,8 +297,6 @@ int MQTTPacket_read(unsigned char* buf, int buflen, int (*getfn)(unsigned char*,
 	
 	/* 1. read the header byte.  This has the packet type in it */
 	if ((*getfn)(buf, 1) != 1){
-		printf("read 1 error");
-		print_usart2_buf();
 		goto exit;
 	}
 		
@@ -310,13 +308,9 @@ int MQTTPacket_read(unsigned char* buf, int buflen, int (*getfn)(unsigned char*,
 
 	/* 3. read the rest of the buffer using a callback to supply the rest of the data */
 	if((rem_len + len) > buflen){
-		printf("read 2 error %d-%d-%d",rem_len,len,buflen);
-		print_usart2_buf();
 		goto exit;
 	}
 	if (rem_len && ((*getfn)(buf + len, rem_len) != rem_len)){
-		printf("read 3 error");
-		print_usart2_buf();
 		goto exit;
 	}
 

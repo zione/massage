@@ -67,7 +67,7 @@ u8 sim800c_send_cmd(char *cmd,char *ack,u16 waittime)
 	{
 		while(--waittime)	//等待倒计时
 		{ 
-			delay_ms(10);
+			delay_ms(1);
 			length = USART2_GetData(SIM_Buffer,SIM_BUFF_SIZEMAX);
 			if(length)//接收到期待的应答结果
 			{
@@ -76,6 +76,7 @@ u8 sim800c_send_cmd(char *cmd,char *ack,u16 waittime)
 					break;
 				}
 			} 
+			delay_ms(1);
 		}
 		if(waittime==0)res=1; 
 	}
@@ -95,18 +96,19 @@ uint8_t sim800c_send_data(char *data,u8 lenth)
 	if(sim800c_send_cmd("AT+CIPSEND",">",500)==0)		//发送数据
 	{
 		USART2_SendString(data,lenth);
-		delay_ms(10);
-		if(sim800c_send_cmd((char*)0X1A,"SEND OK",500)==0)
+		if(sim800c_send_cmd((char*)0X1A,"OK",500)==0){
 			return 0;
-		else
+		}
+		else{
 			return 1;
+		}
 	}
 	else {
 		sim800c_send_cmd((char*)0X1B,0,0);	//ESC,取消发送
 		return 1;
 	}
+	return 0;
 }
-
 /******************************************************************************
 * 函数名		: Start_Gprs_TCP
 * 函数描述  	: SIM800C的gprs初始化

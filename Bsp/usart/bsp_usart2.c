@@ -308,7 +308,7 @@ void USART2_printf(char* fmt,...)
 void USART2_DMASendString(char* Data,u32 Len)		   //多字符输出
 {
 	memcpy(USART2TxBuffer, Data, Len);			   //拷贝数据到发送缓冲区
-    DMA1_Channel7->CNDTR = Len;					   //发送字节数量
+	DMA1_Channel7->CNDTR = Len;					   //发送字节数量
 	USART_DMACmd(USART2, USART_DMAReq_Tx, ENABLE); //开启
 	DMA_Cmd(DMA1_Channel7, ENABLE);				   //始能DMA通道
 }
@@ -354,11 +354,6 @@ void USART2_IRQHandler(void)
 	else if(USART_GetFlagStatus(USART2, USART_IT_ORE) == SET)		//检测是否有接收溢出
 	{
 		USART_ReceiveData(USART2);									//清接收溢出标志，只能用读数据的方式来清溢出标志
-	}
-
-	else if(USART_GetITStatus(USART2, USART_IT_TXE) == SET)				//串口发送数据触发中断
-	{
-		;
 	}
 }
 

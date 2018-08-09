@@ -20,8 +20,6 @@ int transport_getdata(unsigned char* buf, int count)
 	int len = 0;
 	int timeout = 0;
 	
-	printf("start getdata");
-	print_usart2_buf();
 	while(1){
 		len = USART2_GetData(buf,count);
 		if(len > 0 || timeout > 50){
@@ -29,9 +27,6 @@ int transport_getdata(unsigned char* buf, int count)
 		}
 		timeout++;
 		delay_ms(200);
-	}
-	if(timeout > 50){
-		printf("getdata timeout");
 	}
 
 	return len;

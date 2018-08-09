@@ -244,17 +244,19 @@ uint8_t check_to_publish(){
 * 输出结果  	: 
 * 返回值    	: 
 ******************************************************************************/ 
-void parse_payload(){
+void parse_payload(unsigned char* payload,int length){
 	int value = -1;
 	char* start = 0;
 	char* end = 0;
 	int len = 0;
-	char arr[32] = {0};
-	
-	if(strlen((char*)buf) > 0){
-		start = strstr((const char*)buf,"value:");
-		end = strstr((const char*)buf,"}");
-		len = start - end;
+	char arr[32];
+	memcpy(arr,payload,length);
+	arr[length] = '\0';
+	printf("recv: %d %s\r\n",length,arr);
+	if(strlen(arr) > 0){
+		start = strstr(arr,":")+1;
+		end = strstr(arr,"}");
+		len = end - start;
 		strncpy(arr,start,len);
 		value = atoi(arr);
 	}
@@ -274,7 +276,7 @@ void recv_mqtt(){
 		case PUBLISH:
 			if(MQTTDeserialize_publish(&dup, &qos, &retained, &rcv_msgid, &receivedTopic,
 							&payload_in, &payloadlen_in, buf, MQTT_BUFF_LEN)){
-				parse_payload();
+				parse_payload(payload_in,payloadlen_in);
 				send_puback_packet(msgid);
 			}
 			break;
@@ -284,15 +286,16 @@ void recv_mqtt(){
 					force_send = 0;
 					msgid = (msgid+1)%100;
 				}else{
-					force_send = 1;
+					force_send = 1;  //没成功继续发送
 				}
+				printf("rcv pub ack");
 			}
 			break;
 		case PINGRESP:
-			printf("recv ping respone");
+			printf("rcv ping ack");
 			break;
 		default:
-			printf("recv no");
+			printf("rcv no");
 			break;
 	}
 }
