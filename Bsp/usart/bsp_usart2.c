@@ -16,6 +16,7 @@ static u8 USART2TxBuffer[USART2_TX_BUFF_SIZEMAX];	//串口发送缓存区
 static u8 frameValide; //接收到的数据是否是完整的一帧
 static u16 frameCount; //接收到的数据帧长度
 int frameIndex;   //接收缓存区的输出下标
+int rcvClosed;		//是否接收过CLOSED字符串，表示sim868断开了连接
 /****************************************************************************
 * 名	称：void USART2_GPIO_Init(void)
 * 功	能：串口引脚初始化
@@ -216,6 +217,7 @@ u32 USART2_GetData(char* Data,u32 DataLen)
 	return count;
 }
 
+//打印串口2的接收缓冲区
 void print_usart2_buf(void){
 	int i = 0;
 	printf("\r\n");
@@ -229,16 +231,13 @@ void print_usart2_buf(void){
 	printf("usart2 buf :%d-%d-%d\r\n",frameValide,frameCount,frameIndex);
 }
 
-//查询是否有接收到某个字符串，0有，1无
-uint8_t check_str_in_buf(char* str){
-	if(frameValide && LookUSART2_GetBuffCount()){
-		if(strstr((char *)USART2RxBuffer,str)){
-			return 0;
-		}else{
-			return 1;
-		}
-	}else{
+//查询是否接收过“CLOSED”,
+int has_rcv_closed(void){
+	if(rcvClosed){
+		rcvClosed = 0;
 		return 1;
+	}else{
+		return 0;
 	}
 }
 
@@ -349,6 +348,12 @@ void USART2_IRQHandler(void)
 			frameValide = 1;
 			frameIndex = 0;
 			USART2RxBuffer[frameCount]= '\0';  //在末尾加一个结束符
+		
+			if(strstr((char *)USART2RxBuffer,"CLOSED")){
+				rcvClosed = 1;
+			}else{
+				rcvClosed = 0;
+			}
 	}
 
 	else if(USART_GetFlagStatus(USART2, USART_IT_ORE) == SET)		//检测是否有接收溢出

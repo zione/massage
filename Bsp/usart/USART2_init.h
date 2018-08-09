@@ -20,7 +20,7 @@ u32 USART2_GetData(char* Data,u32 DataLen);	//获取多字节数据
 u32 LookUSART2_GetBuffMax(void);				//查询接收缓冲区大小
 u32 LookUSART2_GetBuffCount(void);				//查询缓冲区中接收到的数据个数
 void print_usart2_buf(void);
-uint8_t check_str_in_buf(char* str);
+int has_rcv_closed(void);
 
 #ifdef __cplusplus		   //定义对CPP进行C处理 //结束部分
 }

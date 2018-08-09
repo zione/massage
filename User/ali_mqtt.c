@@ -13,23 +13,11 @@
  
 unsigned char buf[MQTT_BUFF_LEN];
 unsigned short msgid = 1;
-unsigned short rcv_msgid = 1;
-MQTTString topicString = {TOPIC_STRING, {0, NULL}};
 
 int sub_qos[] = {1};
 MQTTString sub_topics[] = {{TOPIC_STRING, {0, NULL}}};
-unsigned char packettype;
-int i=0;
 
-unsigned char dup;
-int qos;
-unsigned char retained;
-unsigned short pmsgid;
-int payloadlen_in;
-unsigned char* payload_in;
-MQTTString receivedTopic;
-
-int preLedStatus;
+int preLedStatus;		//led灯的先前状态
 int force_send = 0; //强制发送
 int flag_server = 0;   //是否连上了服务器
 int flag_conn = 0;   //是否连上mqtt
@@ -47,13 +35,13 @@ uint8_t connect_server(void){
 	uint8_t i;
 	
 	sprintf(p2,"AT+CIPSTART=\"%s\",\"%s\",\"%s\"","TCP",IP_ADDR,PORT);
-	if(0==sim800c_send_cmd(p2,"OK",500))														//发起连接
+	if(0==sim800c_send_cmd(p2,"OK",500))													
 	{
 		i=0;
 		while(i < 5){
 			i++;
 			delay_ms(500);
-			if(sim800c_send_cmd("AT+CIPSTATUS","CONNECT OK",500) == 0)										//查询连接状态
+			if(sim800c_send_cmd("AT+CIPSTATUS","CONNECT OK",500) == 0)				
 			{
 				printf("Connect server OK\r\n");
 				flag_server = 1;
@@ -95,7 +83,6 @@ uint8_t send_connect_packet(void)
 		if (MQTTDeserialize_connack(&sessionPresent, &connack_rc, buf, MQTT_BUFF_LEN) != 1 || connack_rc != 0)
 		{
 			printf("Unable to connect, return code %d\n", connack_rc);
-			printf("mqtt connect fail1\n");
 			return 1;
 		}
 		flag_conn = 1;
@@ -103,7 +90,7 @@ uint8_t send_connect_packet(void)
 		return 0;
 	}
 	else{
-		printf("mqtt connect fail2\n");
+		printf("mqtt connect fail\n");
 		return 1;
 	}
 }
@@ -120,7 +107,7 @@ uint8_t send_subscribe_packet(void)
 {
 	int len = 0;
 	printf("mqtt send subscrib\n");
-	len = MQTTSerialize_subscribe(buf, MQTT_BUFF_LEN, 0, msgid, 1, sub_topics, sub_qos);
+	len = MQTTSerialize_subscribe(buf, MQTT_BUFF_LEN, 0, msgid, sizeof(sub_qos), sub_topics, sub_qos);
 	transport_sendPacketBuffer(0, buf, len);
 	
 	if (MQTTPacket_read(buf, MQTT_BUFF_LEN, transport_getdata) == SUBACK) 
@@ -157,7 +144,7 @@ uint8_t send_publish_packet(void)
 {
 	int len = 0;
 	char* payload = STATUS_ON;
-	len = MQTTSerialize_publish(buf, MQTT_BUFF_LEN, 0, 0, 0, 0, topicString, (unsigned char*)payload, strlen(payload));
+	len = MQTTSerialize_publish(buf, MQTT_BUFF_LEN, 0, 0, 0, 0, sub_topics[0], (unsigned char*)payload, strlen(payload));
 	transport_sendPacketBuffer(0, buf, len);
 	return 0;
 }
@@ -203,7 +190,7 @@ uint8_t send_ping_packet(void)
 ******************************************************************************/ 
 uint8_t check_connect_close(void)
 {
-	if(check_str_in_buf(CLOSE_STR) == 0){
+	if(has_rcv_closed()){
 		printf("disconnect...");
 		flag_server = 0; 
 		flag_conn = 0;  
@@ -272,12 +259,27 @@ void parse_payload(unsigned char* payload,int length){
 * 返回值    	:
 ******************************************************************************/ 
 void recv_mqtt(){
+	int qos;
+	int payloadlen_in;
+	unsigned char* payload_in;
+	unsigned char dup;
+	unsigned char retained;
+	unsigned short rcv_msgid = 1;
+	MQTTString receivedTopic;
+	unsigned char packettype;
+	
 	switch(MQTTPacket_read(buf, MQTT_BUFF_LEN, transport_getdata)){
 		case PUBLISH:
 			if(MQTTDeserialize_publish(&dup, &qos, &retained, &rcv_msgid, &receivedTopic,
 							&payload_in, &payloadlen_in, buf, MQTT_BUFF_LEN)){
 				parse_payload(payload_in,payloadlen_in);
-				send_puback_packet(msgid);
+				if(qos == 1){
+					send_puback_packet(rcv_msgid);
+				}else if(qos == 2){
+					//阿里云暂时不支持
+				}else{
+					//0级不用回复
+				}
 			}
 			break;
 		case PUBACK:
@@ -309,6 +311,11 @@ void recv_mqtt(){
 * 返回值    	: 0,连接成功(得到了期待的应答结果)  1,连接失败
 ******************************************************************************/  
 void handle_mqtt(void){
+		if(check_connect_close()){   //在循环中不断检查是否掉线
+			delay_ms(1000);
+			return;
+		}
+	
 		if(flag_server == 0){    //连接服务器，连接过就不再连接，除非断线
 			if(connect_server()){
 				delay_ms(1000);
@@ -329,12 +336,7 @@ void handle_mqtt(void){
 			}
 			preLedStatus = getLedStatus();
 			force_send = 1;     //第一次上电初始化成功要主动上报一次
-			resetPingCount();   //开始10s计时
-		}
-	
-		if(check_connect_close()){   //在循环中不断检查是否掉线
-			delay_ms(1000);
-			return;
+			resetPingCount(); 
 		}
 		
 		if(check_to_publish() == 0){  //该发送发布包

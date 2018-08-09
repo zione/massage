@@ -76,7 +76,7 @@ u8 sim800c_send_cmd(char *cmd,char *ack,u16 waittime)
 					break;
 				}
 			} 
-			delay_ms(1);
+			//delay_ms(1);
 		}
 		if(waittime==0)res=1; 
 	}
@@ -107,7 +107,6 @@ uint8_t sim800c_send_data(char *data,u8 lenth)
 		sim800c_send_cmd((char*)0X1B,0,0);	//ESC,取消发送
 		return 1;
 	}
-	return 0;
 }
 /******************************************************************************
 * 函数名		: Start_Gprs_TCP
