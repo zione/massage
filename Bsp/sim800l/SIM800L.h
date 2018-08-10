@@ -24,5 +24,5 @@ void Sim_ini(void);
 u8 sim800c_send_cmd(char *cmd,char *ack,u16 waittime);
 uint8_t sim800c_send_data(char *data,u8 lenth);
 uint8_t Start_Gprs_TCP(void);
-uint8_t Creg_CK(void);
+uint8_t wait_reg(void);
 uint8_t connect_server(void);

@@ -24,7 +24,6 @@ int main(void)
 	
   USART1_Config();		
   USART2_Config();
-	USART2_DMATxd_Init();
 	Set_PrintfPort(1);		//设置DebugPf从串口1输出
 	TIM2_Configuration();
 	

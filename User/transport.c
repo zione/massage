@@ -22,13 +22,17 @@ int transport_getdata(unsigned char* buf, int count)
 	
 	while(1){
 		len = USART2_GetData(buf,count);
-		if(len > 0 || timeout > 40){
+		if(len > 0 || timeout > 60){
 			break;
 		}
 		timeout++;
-		delay_ms(200);
+		delay_ms(100);
 	}
-
+	
+/*	if(timeout > 60){
+		printf("getdata timeout\r\n");
+		print_usart2_buf();
+	}*/
 	return len;
 }
 

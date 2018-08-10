@@ -21,11 +21,7 @@ void Sim_ini(void)
 {
 	while(1)
 	{
-		IGT_Lo;
 		delay_ms(2500);
-		IGT_Hi;   //gprs模块上电
-		delay_ms(1000);
-		
 		while(sim800c_send_cmd("AT","OK",100))//波特率自适应
 		{
 			printf("未检测到模块!!!");
@@ -39,6 +35,9 @@ void Sim_ini(void)
 			break;
 		}
 		printf("GPRS配置失败,重新开始配置...");
+		IGT_Lo;
+		delay_ms(2500);
+		IGT_Hi;   //gprs模块上电
 	}
 }
 
@@ -76,7 +75,6 @@ u8 sim800c_send_cmd(char *cmd,char *ack,u16 waittime)
 					break;
 				}
 			} 
-			//delay_ms(1);
 		}
 		if(waittime==0)res=1; 
 	}
@@ -93,7 +91,7 @@ u8 sim800c_send_cmd(char *cmd,char *ack,u16 waittime)
 ******************************************************************************/
 uint8_t sim800c_send_data(char *data,u8 lenth)
 {
-	if(sim800c_send_cmd("AT+CIPSEND",">",500)==0)		//发送数据
+	if(sim800c_send_cmd("AT+CIPSEND",">",20)==0)		//发送数据
 	{
 		USART2_SendString(data,lenth);
 		if(sim800c_send_cmd((char*)0X1A,"OK",500)==0){
@@ -117,29 +115,35 @@ uint8_t sim800c_send_data(char *data,u8 lenth)
 ******************************************************************************/
 uint8_t Start_Gprs_TCP(void)
 {
-	sim800c_send_cmd("AT+CIPCLOSE=1","OK",2);	//关闭连接
-  delay_ms(100);
-	sim800c_send_cmd("AT+CIPSHUT","SHUT OK",2);		//关闭移动场景
-	sim800c_send_cmd("AT+CSQ","OK",2);	//信号强度
-	sim800c_send_cmd("AT+CREG=1","OK",2);
-	sim800c_send_cmd("AT+CGREG=1","OK",2);
-	sim800c_send_cmd("AT+CGCLASS=\"B\"","OK",2);//设置GPRS移动台类别为B,支持包交换和数据交换 
-	sim800c_send_cmd("AT+CGDCONT=1,\"IP\",\"CMNET\"","OK",2);//设置PDP上下文,互联网接协议,接入点等信息
-	sim800c_send_cmd("AT+CGATT=1","OK",2);//附着GPRS业务
-	sim800c_send_cmd("AT+CIPCSGP=1,\"CMNET\"","OK",2);//设置为GPRS连接模式
-  sim800c_send_cmd("AT+CIPMUX=0","OK",2);//设置为单路连接
-	sim800c_send_cmd("AT+CIPMODE=1","OK",2);//打开透传功能
-	sim800c_send_cmd("AT+CIPCCFG=4,5,200,1","OK",2);//配置透传模式：单包重发次数:2,间隔1S发送一次,每次发送200的字节
-	return Creg_CK();
+	sim800c_send_cmd("ATE0","OK",20);
+	sim800c_send_cmd("AT+CIPCLOSE=1","OK",20);	//关闭连接
+  delay_ms(500);
+	sim800c_send_cmd("AT+CIPSHUT","SHUT OK",20);		//关闭移动场景
+	sim800c_send_cmd("AT+CSQ","OK",20);	//信号强度
+	sim800c_send_cmd("AT+CREG=1","OK",20);
+	sim800c_send_cmd("AT+CGREG=1","OK",20);
+	sim800c_send_cmd("AT+CGCLASS=\"B\"","OK",20);//设置GPRS移动台类别为B,支持包交换和数据交换 
+	sim800c_send_cmd("AT+CGDCONT=1,\"IP\",\"CMNET\"","OK",20);//设置PDP上下文,互联网接协议,接入点等信息
+	sim800c_send_cmd("AT+CGATT=1","OK",20);//附着GPRS业务
+	sim800c_send_cmd("AT+CIPCSGP=1,\"CMNET\"","OK",20);//设置为GPRS连接模式
+  sim800c_send_cmd("AT+CIPMUX=0","OK",20);//设置为单路连接
+	sim800c_send_cmd("AT+CIPMODE=1","OK",20);//打开透传功能
+	sim800c_send_cmd("AT+CIPCCFG=4,5,256,1","OK",20);//配置透传模式：单包重发次数:2,间隔1S发送一次,每次发送200的字节
+	return wait_reg();
 }
 
-//判断移动网络注册状态
-//成功0，失败：1
-uint8_t Creg_CK(void)
+/******************************************************************************
+* 函数名		: wait_reg
+* 函数描述  	: 等待SIM800C注册成功
+* 输入参数  	: 					
+* 输出结果  	: 
+* 返回值    	: 0,成功 1,失败
+******************************************************************************/
+uint8_t wait_reg(void)
 {
-	uint8_t i,j;
-	u16 length = 0;
-	i=0;
+	uint8_t i=0,j=0,retry_max = 30;
+	u16 length;
+
 	do{	
 		USART2_printf("%s\r\n","AT+CREG?");//发送命令
 		i++;
@@ -147,11 +151,10 @@ uint8_t Creg_CK(void)
 		length = USART2_GetData(SIM_Buffer,SIM_BUFF_SIZEMAX);
 		if(length)//接收到期待的应答结果
 		{
-			SIM_Buffer[length]=0;//添加结束符
+			SIM_Buffer[length]='\0';//添加结束符
 		}
-	}while((strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,1")==NULL)&& i<60);
+	}while((strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CREG: 1,1")==NULL)&& i<retry_max);
 	
-	j=0;
 	do{
 		USART2_printf("%s\r\n","AT+CGREG?");//发送命令
 		j++;
@@ -161,9 +164,9 @@ uint8_t Creg_CK(void)
 		{
 			SIM_Buffer[length]=0;//添加结束符
 		}
-	}while((strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,1")==NULL)&& j<60);
+	}while((strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,5")==NULL) && (strstr((const char*)SIM_Buffer,(const char*)"+CGREG: 1,1")==NULL)&& j<retry_max);
 	
-	if(i<30 && j<30){
+	if(i<retry_max && j<retry_max){
 		return 0x00;
 	}else{
 		return 0x01;

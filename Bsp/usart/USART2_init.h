@@ -7,6 +7,12 @@ extern "C" {
 
 #include "stm32f10x.h"
 #include "static_init.h"	//串口结构体
+	
+#define BAUD_RATE 115200  //波特率
+
+//缓冲区容量
+#define USART2_RX_BUFF_SIZEMAX 256
+#define USART2_TX_BUFF_SIZEMAX 256
 
 void USART2_Config(void);		  				//串口配置
 void USART2_RX_Buffer_init(void);

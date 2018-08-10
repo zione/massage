@@ -3,16 +3,11 @@
 #include "stdarg.h"	
 #include "stdio.h"	 	 
 #include "string.h"	
-#define BAUD_RATE 115200  //波特率
 
-//缓冲区容量
-#define USART2_RX_BUFF_SIZEMAX 256
-#define USART2_TX_BUFF_SIZEMAX 256
 
-//内部用变量
-static u8 USART2_GetChar=0;							//接收到的单个字符				中断中使用					
-static u8 USART2RxBuffer[USART2_RX_BUFF_SIZEMAX];	//串口接收缓存区 
-static u8 USART2TxBuffer[USART2_TX_BUFF_SIZEMAX];	//串口发送缓存区 
+//内部用变量				
+static u8 USART2RxBuffer[USART2_RX_BUFF_SIZEMAX] = {'\0'};	//串口接收缓存区 
+static u8 USART2TxBuffer[USART2_TX_BUFF_SIZEMAX] = {'\0'};	//串口发送缓存区 
 static u8 frameValide; //接收到的数据是否是完整的一帧
 static u16 frameCount; //接收到的数据帧长度
 int frameIndex;   //接收缓存区的输出下标
@@ -138,14 +133,9 @@ void USART2_DMATxd_Init(void)
 ****************************************************************************/
 void USART2_RX_Buffer_init(void)
 {
-	uint16_t i;
 	frameValide = 0;
 	frameCount = 0;										//空间里数据个数
 	frameIndex = 0;
-	for(i=0;i<USART2_RX_BUFF_SIZEMAX;i++)
-	{
-		USART2RxBuffer[i] = 0x00;
-	}
 }
 
 /****************************************************************************
@@ -160,7 +150,7 @@ void USART2_Config(void)
 	USART2_Init();				//串口初始化
 	USART2_GPIO_Init();			//串口引脚初始化
 	USART2_NVIC_Init();			//中断初始化
-//	USART2_DMATxd_Init();		//DMA发送初始化
+	USART2_DMATxd_Init();		//DMA发送初始化
 	USART2_RX_Buffer_init();	//接收中断与接收缓冲区绑定
 
 	USART_ClearITPendingBit(USART2, USART_IT_RXNE);				//清接收标志
@@ -217,7 +207,13 @@ u32 USART2_GetData(char* Data,u32 DataLen)
 	return count;
 }
 
-//打印串口2的接收缓冲区
+/****************************************************************************
+* 名	称：void print_usart2_buf(void)
+* 功	能：打印串口2的接收缓冲区
+* 入口参数：
+* 出口参数：无
+* 说	明：无				   
+****************************************************************************/
 void print_usart2_buf(void){
 	int i = 0;
 	printf("\r\n");
@@ -231,7 +227,13 @@ void print_usart2_buf(void){
 	printf("usart2 buf :%d-%d-%d\r\n",frameValide,frameCount,frameIndex);
 }
 
-//查询是否接收过“CLOSED”,
+/****************************************************************************
+* 名	称：int has_rcv_closed(void)
+* 功	能：查询是否接收过“CLOSED”,查询完后重置
+* 入口参数：
+* 出口参数: 1 接收过 0 未接收过
+* 说	明：无				   
+****************************************************************************/
 int has_rcv_closed(void){
 	if(rcvClosed){
 		rcvClosed = 0;
@@ -248,7 +250,7 @@ int has_rcv_closed(void){
 * 出口参数：无
 * 说	明：无				   
 ****************************************************************************/
-void USART2_SendByte(char Data)		   //单字符数据输出
+void USART2_SendByte(char Data)	
 {
 	USART_SendData(USART2, Data);
     while(USART_GetFlagStatus(USART2, USART_FLAG_TXE) == RESET);
@@ -262,7 +264,7 @@ void USART2_SendByte(char Data)		   //单字符数据输出
 * 出口参数：无
 * 说	明：无					 
 ****************************************************************************/
-void USART2_SendString(char* Data,u32 Len)		   //多字符输出
+void USART2_SendString(char* Data,u32 Len)
 {
 	u32 i=0;
 	for(i=0;i<Len;i++)
@@ -323,8 +325,8 @@ void USART2_DMASendString(char* Data,u32 Len)		   //多字符输出
 ****************************************************************************/
 void USART2_IRQHandler(void)
 {
-	u8 clear=clear;
-	if(USART_GetITStatus(USART2, USART_IT_RXNE) == SET)				// 串口接收数据触发中断
+	u8 data;
+	if(USART_GetITStatus(USART2, USART_IT_RXNE) == SET)				// 串口接收到一个字符
 	{
 		if(frameValide != 0){   //又来新一帧数据。
 			frameCount = 0;
@@ -332,19 +334,19 @@ void USART2_IRQHandler(void)
 			frameIndex = 0;
 		}
 		
-		USART1_SendByte(USART2_GetChar);
+		data = USART_ReceiveData(USART2);		
+		USART1_SendByte(data);
 		if(frameCount < USART2_RX_BUFF_SIZEMAX)			//如果空间未满,接收保存数据 
 		{
-			USART2_GetChar = USART_ReceiveData(USART2);					//接收到的字符数据
-			USART2RxBuffer[frameCount]= USART2_GetChar;
+			USART2RxBuffer[frameCount]= data;
 			frameCount++;								//空间里数据个数增加
 		}
 		USART_ClearITPendingBit(USART2, USART_IT_RXNE);				//清空接收中断标志
 	}
 	else if(USART_GetFlagStatus(USART2,USART_FLAG_IDLE) == SET)   //接收到完整的一帧数据
 	{					
-			clear=USART2->SR;
-			clear=USART2->DR;			
+			data=USART2->SR;
+			data=USART2->DR;			
 			frameValide = 1;
 			frameIndex = 0;
 			USART2RxBuffer[frameCount]= '\0';  //在末尾加一个结束符
@@ -358,7 +360,7 @@ void USART2_IRQHandler(void)
 
 	else if(USART_GetFlagStatus(USART2, USART_IT_ORE) == SET)		//检测是否有接收溢出
 	{
-		USART_ReceiveData(USART2);									//清接收溢出标志，只能用读数据的方式来清溢出标志
+		USART_ReceiveData(USART2);									//读数据的方式来清溢出标志
 	}
 }
 

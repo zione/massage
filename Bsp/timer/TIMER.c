@@ -2,19 +2,6 @@
 #include "TIMER.h"
 #include "bsp_led.h"
 
-/* 自定义同义关键字    --------------------------------------------------------*/
-
-/* 自定义参数宏        --------------------------------------------------------*/
-
-/* 自定义函数宏        --------------------------------------------------------*/
-
-/* 自定义全局变量          ----------------------------------------------------*/
-
-vu16 CCR1_Val = 10000;			
-vu16 CCR2_Val = 500;			
-vu16 CCR3_Val = 100;			
-vu16 CCR4_Val = 1000;			
-
 uint8_t FLAG_TEST;
 
 int ping_time = 0;    //心跳包的时间计数器
@@ -130,25 +117,22 @@ void NVIC_Configuration(void)
 void TIM2_IRQHandler(void){
 	if(TIM_GetITStatus(TIM2, TIM_IT_Update) != RESET){
 		TIM_ClearITPendingBit(TIM2 , TIM_FLAG_Update);
+		
 		if(ping_time < MAX_PING_COUNTER){
 			ping_time++;
-		}else{
-			
 		}
 		
 		if(switch_time > 0){
 			switch_time--;
-		}
-		
-		if(switch_time == 0){
+		}else{
 			LED_OFF;
 		}
 	}
 }
 
-//是否已经计时了10s
+//是否已经计时MAX_PING_COUNTER
 int isPingCountEnd(){
-	return ping_time == MAX_PING_COUNTER?0:1;
+	return ping_time == MAX_PING_COUNTER;
 }
 
 void resetPingCount(){

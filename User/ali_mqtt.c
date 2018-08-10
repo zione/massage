@@ -15,7 +15,8 @@ unsigned char buf[MQTT_BUFF_LEN];
 unsigned short msgid = 1;
 
 int sub_qos[] = {1};
-MQTTString sub_topics[] = {{TOPIC_STRING, {0, NULL}}};
+MQTTString sub_topics[] = {{SUB_TOPIC_STRING, {0, NULL}}};
+MQTTString send_topics = {SEND_TOPIC_STRING, {0, NULL}};
 
 int preLedStatus;		//led灯的先前状态
 int force_send = 0; //强制发送
@@ -107,7 +108,7 @@ uint8_t send_subscribe_packet(void)
 {
 	int len = 0;
 	printf("mqtt send subscrib\n");
-	len = MQTTSerialize_subscribe(buf, MQTT_BUFF_LEN, 0, msgid, sizeof(sub_qos), sub_topics, sub_qos);
+	len = MQTTSerialize_subscribe(buf, MQTT_BUFF_LEN, 0, msgid, sizeof(sub_qos)/sizeof(sub_qos[0]), sub_topics, sub_qos);
 	transport_sendPacketBuffer(0, buf, len);
 	
 	if (MQTTPacket_read(buf, MQTT_BUFF_LEN, transport_getdata) == SUBACK) 
@@ -116,7 +117,7 @@ uint8_t send_subscribe_packet(void)
 		int subcount;
 		int granted_qos;
 
-		MQTTDeserialize_suback(&submsgid, 1, &subcount, &granted_qos, buf, MQTT_BUFF_LEN);
+		MQTTDeserialize_suback(&submsgid, sizeof(sub_qos)/sizeof(sub_qos[0]), &subcount, &granted_qos, buf, MQTT_BUFF_LEN);
 		if (granted_qos != 1)
 		{
 			printf("granted qos != 0, %d\n", granted_qos);
@@ -136,16 +137,18 @@ uint8_t send_subscribe_packet(void)
 /******************************************************************************
 * 函数名		: send_publish_packet
 * 函数描述  	: 发送mqtt的发布包
-* 输入参数  	: 
+* 输入参数  	: buf,buf_l,dup,qos,retained,packetid,
 * 输出结果  	: 
 * 返回值    	: 0,成功 1,失败
 ******************************************************************************/ 
 uint8_t send_publish_packet(void)
 {
-	int len = 0;
+	int len;
 	char* payload = STATUS_ON;
-	len = MQTTSerialize_publish(buf, MQTT_BUFF_LEN, 0, 0, 0, 0, sub_topics[0], (unsigned char*)payload, strlen(payload));
+	len = MQTTSerialize_publish(buf, MQTT_BUFF_LEN, 0, 1, 0, msgid, send_topics, (unsigned char*)payload, strlen(payload));
 	transport_sendPacketBuffer(0, buf, len);
+	resetPingCount();
+	printf("send pub...\r\n");
 	return 0;
 }
 
@@ -158,9 +161,11 @@ uint8_t send_publish_packet(void)
 ******************************************************************************/ 
 uint8_t send_puback_packet(int mid)
 {
-	int len = 0;
+	int len;
+	printf("send pub ack\r\n");
 	len = MQTTSerialize_puback(buf, MQTT_BUFF_LEN,mid);
 	transport_sendPacketBuffer(0, buf, len);
+	resetPingCount();
 	return 0;
 }
 
@@ -173,10 +178,11 @@ uint8_t send_puback_packet(int mid)
 ******************************************************************************/ 
 uint8_t send_ping_packet(void)
 {
-	int len = 0;
-	printf("ping...\n");
+	int len;
+	printf("ping...\r\n");
 	len = MQTTSerialize_pingreq(buf, MQTT_BUFF_LEN);
 	transport_sendPacketBuffer(0, buf, len);
+	resetPingCount();
 	return 0;
 }
 
@@ -206,7 +212,7 @@ uint8_t check_connect_close(void)
 * 函数描述  	: 检查是否该发送ping包
 * 输入参数  	: 
 * 输出结果  	: 
-* 返回值    	: 0,该 1,不该
+* 返回值    	: 1,该 0,不该
 ******************************************************************************/ 
 uint8_t check_to_ping(){
 	return isPingCountEnd();
@@ -218,7 +224,7 @@ uint8_t check_to_ping(){
 * 函数描述  	: 检查是否该发送发布包，led状态变化就该发送，没接到ack也重发
 * 输入参数  	: 
 * 输出结果  	: 
-* 返回值    	: 0,该 1,不该
+* 返回值    	: 1,该 0,不该
 ******************************************************************************/ 
 uint8_t check_to_publish(){
 	return force_send || preLedStatus != getLedStatus();
@@ -264,7 +270,7 @@ void recv_mqtt(){
 	unsigned char* payload_in;
 	unsigned char dup;
 	unsigned char retained;
-	unsigned short rcv_msgid = 1;
+	unsigned short rcv_msgid;
 	MQTTString receivedTopic;
 	unsigned char packettype;
 	
@@ -287,17 +293,18 @@ void recv_mqtt(){
 				if(rcv_msgid == msgid){ //发送的消息确认被服务器收到
 					force_send = 0;
 					msgid = (msgid+1)%100;
+					printf("stop send\r\n");
 				}else{
 					force_send = 1;  //没成功继续发送
 				}
-				printf("rcv pub ack");
 			}
+			printf("rcv pub ack\r\n");
 			break;
 		case PINGRESP:
-			printf("rcv ping ack");
+			printf("rcv ping ack\r\n");
 			break;
 		default:
-			printf("rcv no");
+			printf("rcv no\r\n");
 			break;
 	}
 }
@@ -335,18 +342,15 @@ void handle_mqtt(void){
 				return;
 			}
 			preLedStatus = getLedStatus();
-			force_send = 1;     //第一次上电初始化成功要主动上报一次
-			resetPingCount(); 
+			//force_send = 1;     //第一次上电初始化成功要主动上报一次
 		}
 		
-		if(check_to_publish() == 0){  //该发送发布包
+		if(check_to_publish()){  //该发送发布包
 			send_publish_packet();
-			resetPingCount();
 		}
 		
-		if(check_to_ping() == 0){   //该发送ping包
+		if(check_to_ping()){   //该发送ping包
 			send_ping_packet();
-			resetPingCount();
 		}
 		
 		recv_mqtt();
